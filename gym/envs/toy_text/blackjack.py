@@ -90,8 +90,25 @@ class BlackjackEnv(gym.Env):
 
     def step(self, action):
         assert self.action_space.contains(action)
+
+        player_card = draw_card(self.np_random)
+
+        if is_bust(self.player + [player_card]):
+            reward_action = -1
+        else:
+            reward_action = 0
+
+        dealer_hand = self.dealer
+        while sum_hand(dealer_hand) < 17:
+            dealer_hand.append(draw_card(self.np_random))
+
+        reward_no_action =  cmp(score(self.player), score(dealer_hand))
+        if self.natural and is_natural(self.player) and reward_no_action == 1:
+            reward_no_action = 1.5
+
+
         if action:  # hit: add a card to players hand and return
-            self.player.append(draw_card(self.np_random))
+            self.player.append(player_card)
             if is_bust(self.player):
                 done = True
                 reward = -1
@@ -100,12 +117,12 @@ class BlackjackEnv(gym.Env):
                 reward = 0
         else:  # stick: play out the dealers hand, and score
             done = True
-            while sum_hand(self.dealer) < 17:
-                self.dealer.append(draw_card(self.np_random))
+            self.dealer = dealer_hand
             reward = cmp(score(self.player), score(self.dealer))
             if self.natural and is_natural(self.player) and reward == 1:
                 reward = 1.5
-        return self._get_obs(), reward, done, {}
+
+        return self._get_obs(), reward, done, {"reward_action":reward_action ,"reward_no_action": reward_no_action}
 
     def _get_obs(self):
         return (sum_hand(self.player), self.dealer[0], usable_ace(self.player))
